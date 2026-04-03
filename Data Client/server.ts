@@ -8,62 +8,55 @@ import dotenv from "dotenv";
 import Table from "cli-table3";
 import chalk from "chalk";
 import { startNgrok } from "./utils/ngrokManager.js";
-import db from "./database.js"; // Load DB Logic
+import db from "./database.js";
 import jwt from "./jwt.js";
+import importRouter from "./routes/importRoutes.js";
 
-// Get the current file path and directory
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Load environment variables from .env file
 dotenv.config({ path: path.resolve(__dirname, "../.env") });
 
-const app = express(); // Create an Express application
+const app = express();
 
-var corsOptions = { origin: ["http://localhost:1337"] };
+const corsOptions = { origin: ["http://localhost:1337"] };
 
-// Middleware
-app.use(cors(corsOptions)); // Enable CORS with the specified options
-app.use(express.json()); // Parse JSON-formatted incoming requests
-app.use(express.urlencoded({ extended: true })); // Parse URL-encoded incoming requests with extended syntax
+app.use(cors(corsOptions));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Redirect user to Webflow Authorization screen
 app.get("/authorize", (req, res) => {
   const authorizeUrl = WebflowClient.authorizeURL({
-    scope: ["sites:read", "authorized_user:read"],
-    clientId: process.env.WEBFLOW_CLIENT_ID,
+    scope: ["sites:read", "authorized_user:read", "cms:read", "cms:write"],
+    clientId: process.env.WEBFLOW_CLIENT_ID as string,
   });
   res.redirect(authorizeUrl);
 });
 
-// Optional: Redirect root to Webflow Authorization screen
 app.get("/", (req, res) => {
   res.redirect("/authorize");
 });
 
 // Exchange the authorization code for an access token and save to DB
 app.get("/callback", async (req, res) => {
-  const { code } = req.query;
+  const { code } = req.query as { code: string };
 
-  // Get Access Token
   const accessToken = await WebflowClient.getAccessToken({
-    clientId: process.env.WEBFLOW_CLIENT_ID,
-    clientSecret: process.env.WEBFLOW_CLIENT_SECRET,
-    code: code,
+    clientId: process.env.WEBFLOW_CLIENT_ID as string,
+    clientSecret: process.env.WEBFLOW_CLIENT_SECRET as string,
+    code,
   });
 
-  // Instantiate the Webflow Client
   const webflow = new WebflowClient({ accessToken });
 
-  // Get site ID to pair with the authorization access token
-  const sites = await webflow.sites.list();
-  sites.sites.forEach((site) => {
-    db.insertSiteAuthorization(site.id, accessToken);
+  const sitesResponse = await webflow.sites.list() as any;
+  const siteList: any[] = sitesResponse.sites ?? [];
+  siteList.forEach((site) => {
+    db.insertSiteAuthorization(site.id as string, accessToken);
   });
 
-  // Redirect URI with first site, can improve UX later for choosing a site
-  // to redirect to
-  const firstSite = sites.sites?.[0];
+  const firstSite = siteList[0];
   if (firstSite) {
     const shortName = firstSite.shortName;
     res.redirect(
@@ -72,39 +65,32 @@ app.get("/callback", async (req, res) => {
     return;
   }
 
-  // Send Auth Complete Screen with Post Message
   const filePath = path.join(__dirname, "public", "authComplete.html");
   res.sendFile(filePath);
 });
 
 // Authenticate Designer Extension User via ID Token
 app.post("/token", jwt.retrieveAccessToken, async (req, res) => {
-  const token = req.body.idToken; // Get token from request
+  const token = req.body.idToken;
 
-  // Resolve Session token by makeing a Request to Webflow API
-  let sessionToken;
   try {
     const options = {
-      method: "POST",
+      method: "POST" as const,
       url: "https://api.webflow.com/beta/token/resolve",
       headers: {
         Accept: "application/json",
         "Content-Type": "application/json",
         Authorization: `Bearer ${req.accessToken}`,
       },
-      data: {
-        idToken: token,
-      },
+      data: { idToken: token },
     };
     const request = await axios.request(options);
     const user = request.data;
 
-    // Generate a Session Token
     const tokenPayload = jwt.createSessionToken(user);
-    sessionToken = tokenPayload.sessionToken;
+    const sessionToken = tokenPayload.sessionToken;
     const expAt = tokenPayload.exp;
-    db.insertUserAuthorization(user.id, req.accessToken);
-    // Respond to user with sesion token
+    db.insertUserAuthorization(user.id, req.accessToken as string);
     res.json({ sessionToken, exp: expAt });
   } catch (e) {
     console.error(
@@ -117,49 +103,49 @@ app.post("/token", jwt.retrieveAccessToken, async (req, res) => {
   }
 });
 
-// Make authenticated request with user's session token
+// Get list of sites
 app.get("/sites", jwt.authenticateSessionToken, async (req, res) => {
   try {
-    // Initialize Webflow Client and make request to sites endpoint
-    const accessToken = req.accessToken;
+    const accessToken = req.accessToken as string;
     const webflow = new WebflowClient({ accessToken });
-    const data = await webflow.sites.list();
-    // Send the retrieved data back to the client
+    const data = await webflow.sites.list() as any;
     res.json({ data });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error handling authenticated request:", error);
+    const status = error?.statusCode ?? error?.response?.status;
+    if (status === 403) {
+      res.status(403).json({ error: "Access denied. Please re-authorize the app." });
+      return;
+    }
     res.status(500).json({ error: "Internal server error" });
   }
 });
 
+// Import routes
+app.use("/import", importRouter);
+
 // Start server with NGROK
-const startServer = async () => {
+const startServer = async (): Promise<void> => {
   try {
-    const PORT = process.env.PORT;
-    // Start Ngrok
+    const PORT = process.env.PORT as string;
     const ngrokUrl = await startNgrok(PORT);
 
-    // Create a table to output in the CLI
     const table = new Table({
-      head: ["Location", "URL"], // Define column headers
-      colWidths: [30, 60], // Define column widths
+      head: ["Location", "URL"],
+      colWidths: [30, 60],
     });
 
-    // Add URL information to the table
     table.push(
-      ["Develoment URL (Frontend)", "http://localhost:1337"],
+      ["Development URL (Frontend)", "http://localhost:1337"],
       ["Development URL (Backend)", `http://localhost:${PORT}`]
     );
 
-    // If using an App, also add the Redirect URI to the table
     if (!process.env.SITE_TOKEN) {
       table.push(["Redirect URI", `${ngrokUrl}/callback`]);
     }
 
-    // Console log the table
     console.log(table.toString());
 
-    // If using an App, send a note to adjust the app's Redirect URI
     if (!process.env.SITE_TOKEN) {
       console.log(
         chalk.blue.inverse("\n\nNOTE:"),
@@ -167,10 +153,7 @@ const startServer = async () => {
       );
     }
 
-    // Start the server
-    app.listen(PORT, () => {
-      // console.log(`Server is running on http://localhost:${PORT}`);
-    });
+    app.listen(PORT, () => {});
   } catch (error) {
     console.error("Failed to start the server with ngrok:", error);
     process.exit(1);

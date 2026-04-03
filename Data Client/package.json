@@ -6,7 +6,7 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "nodemon --signal SIGUSR2 server.js"
+    "dev": "nodemon --signal SIGUSR2 --exec tsx server.ts"
   },
   "author": "",
   "license": "ISC",
@@ -22,9 +22,16 @@
     "express": "^4.21.1",
     "jsonwebtoken": "^9.0.2",
     "sqlite3": "^5.1.7",
-    "webflow-api": "^2.2.1"
+    "webflow-api": "^3.3.4"
   },
   "devDependencies": {
-    "nodemon": "^3.1.0"
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^25.5.0",
+    "@types/sqlite3": "^3.1.11",
+    "nodemon": "^3.1.0",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.2"
   }
 }

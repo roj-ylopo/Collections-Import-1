@@ -8,9 +8,10 @@ interface ImportDashboardProps {
   siteId: string;
   siteName?: string;
   sessionToken: string;
+  onBackToSiteSelect?: () => void;
 }
 
-const ImportDashboard: React.FC<ImportDashboardProps> = ({ siteId, siteName, sessionToken }) => {
+const ImportDashboard: React.FC<ImportDashboardProps> = ({ siteId, siteName, sessionToken, onBackToSiteSelect }) => {
   const [collections, setCollections] = useState<WFCollection[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -56,6 +57,7 @@ const ImportDashboard: React.FC<ImportDashboardProps> = ({ siteId, siteName, ses
         siteName={siteName}
         collections={collections}
         sessionToken={sessionToken}
+        onBackToSiteSelect={onBackToSiteSelect}
       />
     </div>
   );

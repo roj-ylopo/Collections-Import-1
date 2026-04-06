@@ -11,6 +11,7 @@ import { startNgrok } from "./utils/ngrokManager.js";
 import db from "./database.js";
 import jwt from "./jwt.js";
 import importRouter from "./routes/importRoutes.js";
+import type { Request, Response } from "express";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -25,8 +26,43 @@ app.use(cors(corsOptions));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+app.post("/logout", jwt.authenticateSessionToken, async (req: Request, res: Response) => {
+  try {
+    const authHeader = req.headers.authorization;
+    const sessionToken = authHeader && authHeader.split(" ")[1];
+
+    if (!sessionToken) {
+      res.status(401).json({ message: "Authentication token is missing" });
+      return;
+    }
+    const decoded = (await import("jsonwebtoken")).default.verify(
+      sessionToken,
+      process.env.WEBFLOW_CLIENT_SECRET as string
+    ) as { user: { id: string } };
+    const userId = decoded.user.id;
+    console.log("Decoded user ID from session token:", userId);
+    // Remove user access token from DB
+    db.db.run(
+      "DELETE FROM userAuthorizations WHERE userId = ?",
+      [userId],
+      (err: Error | null) => {
+        if (err) {
+          console.error("Error deleting user authorization:", err);
+          res.status(500).json({ error: "Failed to log out user" });
+        } else {
+          console.log("User authorization deleted successfully for user ID:", userId);
+          res.json({ success: true });
+        }
+      }
+    );
+  } catch (err) {
+    res.status(403).json({ message: "Invalid or expired token" });
+  }
+});
+
 // Redirect user to Webflow Authorization screen
 app.get("/authorize", (req, res) => {
+  console.log("Redirecting user to Webflow authorization screen...");
   const authorizeUrl = WebflowClient.authorizeURL({
     scope: ["sites:read", "authorized_user:read", "cms:read", "cms:write"],
     clientId: process.env.WEBFLOW_CLIENT_ID as string,
@@ -35,13 +71,15 @@ app.get("/authorize", (req, res) => {
 });
 
 app.get("/", (req, res) => {
+  console.log("Redirecting user to Webflow authorization screen...");
   res.redirect("/authorize");
 });
 
 // Exchange the authorization code for an access token and save to DB
 app.get("/callback", async (req, res) => {
+  console.log("Received callback from Webflow with query:", req.query);
   const { code } = req.query as { code: string };
-
+  console.log("Exchanging authorization code for access token...");
   const accessToken = await WebflowClient.getAccessToken({
     clientId: process.env.WEBFLOW_CLIENT_ID as string,
     clientSecret: process.env.WEBFLOW_CLIENT_SECRET as string,
@@ -72,7 +110,8 @@ app.get("/callback", async (req, res) => {
 // Authenticate Designer Extension User via ID Token
 app.post("/token", jwt.retrieveAccessToken, async (req, res) => {
   const token = req.body.idToken;
-
+  // console.log("Received ID token for session token exchange:", token);
+  console.log("req.accessToken set by middleware:", req.accessToken);
   try {
     const options = {
       method: "POST" as const,
@@ -86,6 +125,7 @@ app.post("/token", jwt.retrieveAccessToken, async (req, res) => {
     };
     const request = await axios.request(options);
     const user = request.data;
+    console.log("User info retrieved from Webflow:", user);
 
     const tokenPayload = jwt.createSessionToken(user);
     const sessionToken = tokenPayload.sessionToken;

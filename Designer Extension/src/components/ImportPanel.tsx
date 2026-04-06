@@ -18,6 +18,7 @@ interface ImportPanelProps {
   siteName?: string;
   collections: WFCollection[];
   sessionToken: string;
+  onBackToSiteSelect?: () => void;
 }
 
 type Step = "idle" | "mapping" | "importing" | "done";
@@ -89,6 +90,7 @@ const ImportPanel: React.FC<ImportPanelProps> = ({
   siteName,
   collections,
   sessionToken,
+  onBackToSiteSelect,
 }) => {
   const [step, setStep] = useState<Step>("idle");
   const [url, setUrl] = useState("");
@@ -223,6 +225,15 @@ const ImportPanel: React.FC<ImportPanelProps> = ({
       {/* ── idle: URL + type input ── */}
       {step === "idle" && (
         <div className="import-panel-form">
+          {onBackToSiteSelect && (
+            <button
+              className="btn link"
+              style={{ marginBottom: 12, alignSelf: "flex-start" }}
+              onClick={onBackToSiteSelect}
+            >
+              ← Back to Site Selection
+            </button>
+          )}
           <div className="form-group">
             <label className="form-label">Data URL (JSON Link)</label>
             <input

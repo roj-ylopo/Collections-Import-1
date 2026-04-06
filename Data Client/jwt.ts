@@ -44,7 +44,7 @@ const createSessionToken = (user: WebflowUser): SessionTokenPayload => {
   const sessionToken = jsonwebtoken.sign(
     { user },
     process.env.WEBFLOW_CLIENT_SECRET as string,
-    { expiresIn: "24h" }
+    { expiresIn: "8h" }
   );
   const decodedToken = jsonwebtoken.decode(sessionToken) as { exp: number };
   return {

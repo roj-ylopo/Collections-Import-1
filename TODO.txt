@@ -1,0 +1,5 @@
+- Add Cancel/Close Button (Cancel)
+- Add Back button to return to the Site Selection Component (Done)
+- Add Logout to Reauthenticate and add to more sites (Done)
+- Implement testimonials reference to team or the other way (reference field)
+- Add multi reference field for "tags" and "categories"

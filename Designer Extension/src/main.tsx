@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import ReactDOM from "react-dom/client";
 import axios from "axios";
+import { logoutUser } from "./api/importApi";
 import { ThemeProvider, Button, Container, Typography, CircularProgress, Box } from "@mui/material";
 import theme from "./theme";
 import SiteSelector from "./components/SiteSelector";
@@ -29,7 +30,7 @@ const App: React.FC = () => {
   const API_URL = `http://localhost:${PORT}/`;
 
   useEffect(() => {
-    webflow.setExtensionSize("default");
+    webflow.setExtensionSize("large");
 
     const exchangeAndVerifyIdToken = async () => {
       try {
@@ -63,6 +64,7 @@ const App: React.FC = () => {
     };
 
     const localStorageUser = localStorage.getItem("wf_hybrid_user");
+    
     if (localStorageUser) {
       const parsed: StoredUser = JSON.parse(localStorageUser);
       if (parsed.sessionToken && Date.now() < parsed.exp * 1000) {
@@ -171,7 +173,29 @@ const App: React.FC = () => {
               </Button>
             )}
             {sites.length > 0 && (
+              <>
               <SiteSelector sites={sites} onSelect={handleSiteSelect} />
+              <button
+                onClick={async () => {
+                  try {
+                    await logoutUser(sessionToken, PORT);
+                  } catch (e) {
+                    // Ignore errors, proceed to clear FE state
+                  }
+                  localStorage.removeItem("wf_hybrid_user");
+                  setSessionToken("");
+                  setUser({});
+                  setSites([]);
+                  setSelectedSite(null);
+                  setAppStep("auth");
+                }}
+                style={{ marginTop: 16, background: "none", border: "none", width: "100%", color: "#007bff", cursor: "pointer", padding: 0 }}
+              >
+              Log out
+            </button>
+              </>
+              
+              
             )}
           </Container>
         )}
@@ -181,6 +205,7 @@ const App: React.FC = () => {
             siteId={selectedSite.id}
             siteName={selectedSite.displayName}
             sessionToken={sessionToken}
+            onBackToSiteSelect={() => setAppStep("siteSelect")}
           />
         )}
       </div>

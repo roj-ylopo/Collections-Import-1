@@ -25,7 +25,8 @@ export const UNNECESSARY_FIELDS = [
   "mediaFocalPoint.source",
   "recordtypelabel",
   "items",
-  "tags",
+  "tags",// array
+  "categories",// array TODO: find a way to include this 
 ] as const;
 
 // Export as Set for frontend convenience

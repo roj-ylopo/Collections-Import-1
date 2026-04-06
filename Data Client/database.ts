@@ -29,64 +29,36 @@ db.serialize(() => {
   db.run(`
     CREATE TABLE IF NOT EXISTS userAuthorizations (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      userId TEXT,
+      userId TEXT UNIQUE,
       accessToken TEXT
     )
   `);
 });
 
 function insertSiteAuthorization(siteId: string, accessToken: string): void {
-  db.get(
-    "SELECT * FROM siteAuthorizations WHERE siteId = ?",
-    [siteId],
-    (err: Error | null, existingAuth: SiteAuthorization | undefined) => {
+  db.run(
+    "INSERT OR REPLACE INTO siteAuthorizations (siteId, accessToken) VALUES (?, ?)",
+    [siteId, accessToken],
+    (err: Error | null) => {
       if (err) {
-        console.error("Error checking for existing site authorization:", err);
-        return;
+        console.error("Error upserting site authorization pairing:", err);
+      } else {
+        console.log("Site authorization pairing upserted successfully.");
       }
-      if (existingAuth) {
-        console.log("Site auth already exists:", existingAuth);
-        return;
-      }
-      db.run(
-        "INSERT INTO siteAuthorizations (siteId, accessToken) VALUES (?, ?)",
-        [siteId, accessToken],
-        (err: Error | null) => {
-          if (err) {
-            console.error("Error inserting site authorization pairing:", err);
-          } else {
-            console.log("Site authorization pairing inserted successfully.");
-          }
-        }
-      );
     }
   );
 }
 
 function insertUserAuthorization(userId: string, accessToken: string): void {
-  db.get(
-    "SELECT * FROM userAuthorizations WHERE userId = ?",
-    [userId],
-    (err: Error | null, existingTokenAuth: UserAuthorization | undefined) => {
+  db.run(
+    "INSERT OR REPLACE INTO userAuthorizations (userId, accessToken) VALUES (?, ?)",
+    [userId, accessToken],
+    (err: Error | null) => {
       if (err) {
-        console.error("Error checking for existing user access token:", err);
-        return;
+        console.error("Error upserting user access token pairing:", err);
+      } else {
+        console.log("User access token pairing upserted successfully.");
       }
-      if (existingTokenAuth) {
-        console.log("Access token pairing already exists:", existingTokenAuth);
-        return;
-      }
-      db.run(
-        "INSERT INTO userAuthorizations (userId, accessToken) VALUES (?, ?)",
-        [userId, accessToken],
-        (err: Error | null) => {
-          if (err) {
-            console.error("Error inserting user access token pairing:", err);
-          } else {
-            console.log("User access token pairing inserted successfully.");
-          }
-        }
-      );
     }
   );
 }

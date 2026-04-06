@@ -26,6 +26,15 @@ export async function fetchSourceItems(
   return res.data.items ?? [];
 }
 
+export async function logoutUser(token: string, port?: string) {
+  const logoutPort = port || process.env.PORT;
+  await axios.post(
+    `http://localhost:${logoutPort}/logout`,
+    {},
+    { headers: authHeader(token)}
+  );
+}
+
 export async function fetchCollections(
   siteId: string,
   token: string

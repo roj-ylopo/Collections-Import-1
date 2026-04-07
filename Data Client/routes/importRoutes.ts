@@ -14,11 +14,6 @@ import { COLLECTION_NAMES, UNNECESSARY_FIELDS } from "../../shared/constants.js"
 const router = Router();
 
 const nonStringFields = {
-  "location.mapZoom": "Number",
-  "location.mapLat": "Number",
-  "location.mapLng": "Number",
-  "location.markerLat": "Number",
-  "location.markerLng": "Number",
   "customContent.disableHeaderLogo": "Switch",
   "likeCount": "Number",
   "commentCount": "Number",
@@ -32,6 +27,7 @@ const nonStringFields = {
   "customContent.zillow_rating": "Number",
   "customContent.zillow_responsiveness_rating": "Number",
   "customContent.zillow_negotiating_skills_rating": "Number",
+  "assetUrl": "Image",
 };
   
 
@@ -165,6 +161,16 @@ function slugify(str: string): string {
     .replace(/[^a-z0-9\s-]/g, "")
     .replace(/\s+/g, "-")
     .replace(/-+/g, "-");
+}
+
+//a function that extracts text only from a string, removing any HTML tags if present except of <p> and line breaks
+function getTextOnly(str: string): string {
+  try {
+    return str.replace(/<(?!\/?p\b)[^>]+>/g, "").replace(/\n/g, " ").trim();
+  } catch (error) {
+    console.error("Error extracting text:", error);
+    return str;
+  }
 }
 
 /**
@@ -354,7 +360,16 @@ router.post(
           const transformedFieldData: Record<string, unknown> = {};
           for (const [key, value] of Object.entries(fieldData)) {
             const targetKey = key.split(/[._]/).map(part => slugify(part)).join('-');
-            transformedFieldData[targetKey] = value;
+            if(targetKey.startsWith("location")){
+              transformedFieldData[targetKey] = String(value);
+            }
+            else if(targetKey === "body" || targetKey === "excerpt"){
+              const text = getTextOnly(String(value));
+              transformedFieldData[targetKey] =  text;
+            }
+             else {
+              transformedFieldData[targetKey] = value;
+            }
           }
 
           console.log('transformedFieldData:', transformedFieldData);

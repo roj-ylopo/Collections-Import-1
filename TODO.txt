@@ -3,3 +3,4 @@
 - Add Logout to Reauthenticate and add to more sites (Done)
 - Implement testimonials reference to team or the other way (reference field)
 - Add multi reference field for "tags" and "categories"
+- Imported images should be uploaded to S3, then saved to CMS
